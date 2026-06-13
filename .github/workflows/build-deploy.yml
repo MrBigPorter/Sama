@@ -48,11 +48,11 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '24'
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
       - name: EAS Build iOS
         run: npx eas build --profile ${{ needs.resolve.outputs.profile }} --platform ios --non-interactive
@@ -70,11 +70,11 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '24'
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
       - name: EAS Build Android
         run: npx eas build --profile ${{ needs.resolve.outputs.profile }} --platform android --non-interactive
@@ -93,11 +93,11 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '24'
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
       - name: Push staging OTA update
         run: 'npx eas update --branch staging --message "CI: $(git log -1 --pretty=%s)"'
@@ -116,11 +116,11 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '24'
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
       - name: Push production OTA update
         run: 'npx eas update --branch production --message "CI: $(git log -1 --pretty=%s)"'
@@ -140,11 +140,11 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '24'
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
       - name: Submit iOS to App Store Connect
         run: npx eas submit --platform ios --profile production --non-interactive
@@ -164,11 +164,11 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '24'
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
       - name: Submit Android to Google Play Console
         run: npx eas submit --platform android --profile production --non-interactive
