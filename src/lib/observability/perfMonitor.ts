@@ -101,14 +101,9 @@ class PerfMonitor {
       timestamp: new Date().toISOString(),
     };
 
-    // Slow screen → send immediately as Sentry transaction
+    // Slow screen → send immediately as Sentry breadcrumb
     if (durationMs > SLOW_SCREEN_THRESHOLD_MS) {
-      const transaction = Sentry.startTransaction({
-        name: `screen_load.${screenName}`,
-        data: { durationMs: entry.durationMs },
-      });
-      transaction.finish();
-      addBreadcrumb('Slow screen load', 'perf', entry);
+      addBreadcrumb('Slow screen load', 'perf', entry as unknown as Record<string, unknown>);
       logger.warn('Slow screen load', entry);
       return;
     }
@@ -135,18 +130,12 @@ class PerfMonitor {
 
     if (!success) {
       // Failed calls always get a Sentry breadcrumb
-      addBreadcrumb('API call failed', 'network', entry);
+      addBreadcrumb('API call failed', 'network', entry as unknown as Record<string, unknown>);
     }
 
     if (durationMs > SLOW_API_THRESHOLD_MS) {
-      addBreadcrumb('Slow API call', 'network', entry);
+      addBreadcrumb('Slow API call', 'network', entry as unknown as Record<string, unknown>);
       logger.warn('Slow API call', entry);
-      // Send slow API as a transaction immediately
-      const transaction = Sentry.startTransaction({
-        name: `api_slow.${operation}`,
-        data: { durationMs: entry.durationMs, success },
-      });
-      transaction.finish();
       return;
     }
 
@@ -186,11 +175,11 @@ class PerfMonitor {
     activeTraces.delete(name);
     const durationMs = performance.now() - trace.startTime;
 
-    const transaction = Sentry.startTransaction({
-      name: `manual.${name}`,
-      data: { ...trace.data, durationMs: Math.round(durationMs) },
+    addBreadcrumb('Manual trace', 'perf', {
+      name,
+      ...(trace.data as Record<string, unknown>),
+      durationMs: Math.round(durationMs),
     });
-    transaction.finish();
   }
 
   // ── Flush ─────────────────────────────────────────────────────────────
@@ -216,10 +205,10 @@ class PerfMonitor {
     const slowestApi = [...apiCalls].sort((a, b) => b.durationMs - a.durationMs)[0];
 
     if (slowestScreen) {
-      addBreadcrumb('Slowest screen', 'perf', slowestScreen);
+      addBreadcrumb('Slowest screen', 'perf', slowestScreen as unknown as Record<string, unknown>);
     }
     if (slowestApi) {
-      addBreadcrumb('Slowest API', 'perf', slowestApi);
+      addBreadcrumb('Slowest API', 'perf', slowestApi as unknown as Record<string, unknown>);
     }
 
     // Clear buffer

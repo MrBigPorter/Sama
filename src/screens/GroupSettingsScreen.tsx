@@ -256,7 +256,7 @@ export default function GroupSettingsScreen() {
           onPress: async () => {
             try {
               await disbandGroup({ variables: { groupId } });
-              navigation.navigate('Chats');
+              navigation.navigate('MainTabs');
             } catch (err: any) {
               Alert.alert(
                 'Error',

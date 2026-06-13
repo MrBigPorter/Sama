@@ -170,7 +170,7 @@ class ABTestService {
     }
 
     // Compute and cache
-    const variant = assignVariant(this.userId, experimentName);
+    const variant = assignVariant(this.userId, config);
     this.assignments[experimentName] = variant;
     saveAssignments(this.assignments);
 

@@ -1,4 +1,5 @@
 import React, { useState, useCallback } from 'react';
+import { notificationService } from '@/services/notificationService';
 import {
   View,
   Text,
@@ -64,8 +65,19 @@ export default function SettingsScreen() {
     ]);
   }, []);
 
+  const handleNotificationsPress = useCallback(async () => {
+    const status = await notificationService.refreshPermissions();
+    const message =
+      status === 'granted'
+        ? 'Notifications are enabled. You will receive alerts for new messages.'
+        : 'Notifications are disabled. Enable them in your device Settings to receive message alerts.';
+    Alert.alert(
+      status === 'granted' ? 'Notifications Enabled' : 'Notifications Disabled',
+      message,
+    );
+  }, []);
+
   const menuItems = [
-    { label: 'Notifications', icon: '🔔' },
     { label: 'Privacy', icon: '🔒' },
     { label: 'Language', icon: '🌐' },
     { label: 'About', icon: 'ℹ️' },
@@ -178,6 +190,32 @@ export default function SettingsScreen() {
           />
         </TouchableOpacity>
       </View>
+
+      {/* Notifications */}
+      <TouchableOpacity
+        style={[
+          styles.menuItem,
+          {
+            backgroundColor: colors.bgSecondary,
+            marginHorizontal: front.spacingMd || 16,
+            marginBottom: front.spacingSm || 8,
+            padding: front.spacingMd || 16,
+            borderRadius: front.radiusMd || 8,
+          },
+        ]}
+        onPress={handleNotificationsPress}
+        activeOpacity={0.7}
+      >
+        <Text style={styles.menuIcon}>🔔</Text>
+        <Text
+          style={[
+            styles.menuLabel,
+            { color: colors.textPrimary, marginLeft: 12 },
+          ]}
+        >
+          Notifications
+        </Text>
+      </TouchableOpacity>
 
       {/* Menu Items */}
       {menuItems.map((item) => (

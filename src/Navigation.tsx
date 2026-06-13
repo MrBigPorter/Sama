@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { NavigationContainer, useNavigation } from '@react-navigation/native';
+import { NavigationContainer, useNavigation, createNavigationContainerRef } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -25,6 +25,8 @@ import CreateGroupScreen from '@/screens/CreateGroupScreen';
 import NewFriendScreen from '@/screens/NewFriendScreen';
 import SearchScreen from '@/screens/SearchScreen';
 import UserProfileScreen from '@/screens/UserProfileScreen';
+import ImageViewerScreen from '@/screens/ImageViewerScreen';
+import VideoPlayerScreen from '@/screens/VideoPlayerScreen';
 
 export type RootStackParamList = {
   Login: undefined;
@@ -39,9 +41,14 @@ export type RootStackParamList = {
   NewFriend: undefined;
   Search: undefined;
   UserProfile: { userId: string; nickname?: string; avatar?: string };
+  ImageViewer: { url: string };
+  VideoPlayer: { url: string };
 };
 
 export type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
+
+/** Navigation ref for use outside of React components (e.g. notification tap). */
+export const navigationRef = createNavigationContainerRef<RootStackParamList>();
 
 export type MainTabParamList = {
   Chats: undefined;
@@ -198,6 +205,16 @@ function MainStack() {
         component={UserProfileScreen}
         options={({ route }) => ({ title: route.params.nickname || 'Profile' })}
       />
+      <Stack.Screen
+        name="ImageViewer"
+        component={ImageViewerScreen}
+        options={{ headerShown: false, animation: 'fade' }}
+      />
+      <Stack.Screen
+        name="VideoPlayer"
+        component={VideoPlayerScreen}
+        options={{ headerShown: false, animation: 'slide_from_bottom' }}
+      />
     </Stack.Navigator>
   );
 }
@@ -251,7 +268,7 @@ export function Navigation() {
   }, []);
 
   return (
-    <NavigationContainer>
+    <NavigationContainer ref={navigationRef}>
       {isAuthenticated ? <MainStack /> : <AuthStack />}
       {incomingCall && (
         <IncomingCallOverlay

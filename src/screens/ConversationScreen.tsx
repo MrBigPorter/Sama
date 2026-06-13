@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
   ActionSheetIOS,
   Alert,
+  Linking,
 } from 'react-native';
 import { useRoute, useNavigation, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -38,6 +39,11 @@ import { messageCache } from '@/services/messageCache';
 import type { CachedMessage } from '@/services/messageCache';
 import { offlineQueue } from '@/services/offlineQueue';
 import { syncService } from '@/services/syncService';
+import { uploadService } from '@/services/uploadService';
+import * as ImagePicker from 'expo-image-picker';
+import * as DocumentPicker from 'expo-document-picker';
+import * as Location from 'expo-location';
+import * as Haptics from 'expo-haptics';
 
 type ConversationRouteProp = RouteProp<RootStackParamList, 'Conversation'>;
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -152,6 +158,7 @@ export default function ConversationScreen() {
   const handleSend = useCallback(async () => {
     const trimmed = input.trim();
     if (!trimmed || sending) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
     const tempId = `temp_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
@@ -214,6 +221,69 @@ export default function ConversationScreen() {
       );
     }
   }, [input, sending, sendMessage, conversationId, currentUserId, replyingTo]);
+
+  // ── Send attachment message helper ──────────────────────────────
+
+  const sendAttachmentMessage = useCallback(
+    async (content: string, type: number, meta?: Record<string, any>) => {
+      const tempId = `temp_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
+      // Build meta with optional replyTo
+      const metaObj: Record<string, any> = { ...(meta || {}) };
+      if (replyingTo) {
+        metaObj.replyTo = {
+          messageId: replyingTo.id,
+          content: replyingTo.content?.slice(0, 100) || '',
+          senderId: replyingTo.senderId,
+          senderName: undefined,
+        };
+      }
+      const metaStr = Object.keys(metaObj).length > 0 ? JSON.stringify(metaObj) : undefined;
+
+      // Create optimistic message
+      const optimistic: CachedMessage = {
+        id: tempId,
+        conversationId,
+        senderId: currentUserId!,
+        content,
+        type: type as any,
+        clientTempId: tempId,
+        createdAt: new Date().toISOString(),
+        status: MessageStatus.SENDING,
+        meta: metaStr,
+      };
+
+      // Persist to cache and show in UI
+      messageCache.saveMessage(optimistic);
+      messageCache.trackPending(tempId);
+      setOptimisticMessages((prev) => [...prev, optimistic]);
+      setReplyingTo(null);
+
+      try {
+        await sendMessage({
+          variables: {
+            conversationId,
+            content,
+            type,
+            clientTempId: tempId,
+            meta: metaStr,
+          },
+        });
+      } catch {
+        const failed = messageCache.getMessageById(tempId);
+        if (failed) {
+          failed.status = MessageStatus.FAILED;
+          messageCache.saveMessage(failed);
+        }
+        setOptimisticMessages((prev) =>
+          prev.map((m) =>
+            m.id === tempId ? { ...m, status: MessageStatus.FAILED } : m,
+          ),
+        );
+      }
+    },
+    [sendMessage, conversationId, currentUserId, replyingTo],
+  );
 
   // ── Header actions: Group info + Call buttons ──────────────────
 
@@ -523,6 +593,7 @@ export default function ConversationScreen() {
 
   const handleMessageLongPress = useCallback(
     (message: Message) => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       const canRecallMsg = canRecall(message, currentUserId);
       const isMyMessage = message.senderId === currentUserId;
       const isText = message.type === 0;
@@ -688,6 +759,7 @@ export default function ConversationScreen() {
             variables: { messageId, emoji },
           });
         } else {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
           await addReaction({
             variables: { messageId, emoji },
           });
@@ -735,13 +807,127 @@ export default function ConversationScreen() {
 
   const handleMediaPress = useCallback(
     (message: Message) => {
-      // TODO: Implement media preview (Phase A.1–A.3)
-      if (__DEV__) {
-        console.log(`[MediaPress] type=${message.type} url=${message.content}`);
+      const meta = parseMeta(message);
+      switch (message.type) {
+        case 1: // IMAGE
+          navigation.navigate('ImageViewer', { url: message.content });
+          break;
+        case 3: // VIDEO
+          navigation.navigate('VideoPlayer', { url: message.content });
+          break;
+        case 4: // FILE
+          if (message.content) {
+            Linking.openURL(message.content).catch(() => {
+              Alert.alert('Error', 'Could not open file');
+            });
+          }
+          break;
+        case 5: // LOCATION
+          if (meta?.lat && meta?.lng) {
+            const scheme = Platform.OS === 'ios' ? 'maps:' : 'geo:';
+            Linking.openURL(`${scheme}${meta.lat},${meta.lng}`).catch(() => {
+              Alert.alert('Error', 'Could not open maps');
+            });
+          }
+          break;
       }
     },
-    [],
+    [navigation],
   );
+
+  // ── Attachment picker handlers ─────────────────────────────────
+
+  /** Pick image from Photo Library → upload → send */
+  const handlePickPhotoLibrary = useCallback(async () => {
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) {
+      Alert.alert('Permission required', 'We need access to your photo library to send images.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      quality: 0.8,
+    });
+    if (result.canceled || !result.assets[0]) return;
+    const asset = result.assets[0];
+    try {
+      const uploaded = await uploadService.uploadImage(asset.uri);
+      await sendAttachmentMessage(uploaded.cdnUrl, 1, {
+        width: asset.width,
+        height: asset.height,
+      });
+    } catch (err) {
+      Alert.alert('Upload failed', 'Could not upload image. Please try again.');
+    }
+  }, [sendAttachmentMessage]);
+
+  /** Take a photo with Camera → upload → send */
+  const handleTakePhoto = useCallback(async () => {
+    const perm = await ImagePicker.requestCameraPermissionsAsync();
+    if (!perm.granted) {
+      Alert.alert('Permission required', 'We need camera access to take photos.');
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({
+      quality: 0.8,
+    });
+    if (result.canceled || !result.assets[0]) return;
+    const asset = result.assets[0];
+    try {
+      const uploaded = await uploadService.uploadImage(asset.uri);
+      await sendAttachmentMessage(uploaded.cdnUrl, 1, {
+        width: asset.width,
+        height: asset.height,
+      });
+    } catch (err) {
+      Alert.alert('Upload failed', 'Could not upload photo. Please try again.');
+    }
+  }, [sendAttachmentMessage]);
+
+  /** Pick a document → upload → send */
+  const handlePickDocument = useCallback(async () => {
+    const result = await DocumentPicker.getDocumentAsync({});
+    if (result.canceled || !result.assets[0]) return;
+    const asset = result.assets[0];
+    try {
+      const uploaded = await uploadService.uploadDocument(asset.uri, asset.mimeType ?? 'application/octet-stream');
+      await sendAttachmentMessage(uploaded.cdnUrl, 4, {
+        fileName: asset.name,
+        fileSize: asset.size,
+      });
+    } catch (err) {
+      Alert.alert('Upload failed', 'Could not upload file. Please try again.');
+    }
+  }, [sendAttachmentMessage]);
+
+  /** Get current location → send as LOCATION message */
+  const handleShareLocation = useCallback(async () => {
+    const perm = await Location.requestForegroundPermissionsAsync();
+    if (!perm.granted) {
+      Alert.alert('Permission required', 'We need location access to share your location.');
+      return;
+    }
+    try {
+      const loc = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+      await sendAttachmentMessage(
+        `${loc.coords.latitude},${loc.coords.longitude}`,
+        5,
+        {
+          lat: loc.coords.latitude,
+          lng: loc.coords.longitude,
+        },
+      );
+    } catch (err) {
+      Alert.alert('Location failed', 'Could not get your current location. Please try again.');
+    }
+  }, [sendAttachmentMessage]);
+
+  /** Record voice → upload → send (stub — full voice recorder in future) */
+  const handleRecordVoice = useCallback(async () => {
+    Alert.alert('Voice Recording', 'Voice recording will be available in a future update.');
+  }, []);
 
   // ── Attachment ActionSheet ─────────────────────────────────────
 
@@ -754,15 +940,20 @@ export default function ConversationScreen() {
         },
         (index) => {
           switch (index) {
-            case 1: // Photo Library
+            case 1:
+              handlePickPhotoLibrary();
               break;
-            case 2: // Camera
+            case 2:
+              handleTakePhoto();
               break;
-            case 3: // File
+            case 3:
+              handlePickDocument();
               break;
-            case 4: // Location
+            case 4:
+              handleShareLocation();
               break;
-            case 5: // Voice
+            case 5:
+              handleRecordVoice();
               break;
           }
         },
@@ -770,7 +961,7 @@ export default function ConversationScreen() {
     } else {
       setShowActionSheet(true);
     }
-  }, []);
+  }, [handlePickPhotoLibrary, handleTakePhoto, handlePickDocument, handleShareLocation, handleRecordVoice]);
 
   // ── Compute my reactions for the active picker ─────────────────
 
@@ -977,6 +1168,26 @@ export default function ConversationScreen() {
       {showActionSheet && (
         <View style={styles.actionSheetOverlay}>
           <View style={[styles.actionSheet, { backgroundColor: colors.bgPrimary }]}>
+            {([
+              { label: 'Photo Library', handler: handlePickPhotoLibrary },
+              { label: 'Camera', handler: handleTakePhoto },
+              { label: 'File', handler: handlePickDocument },
+              { label: 'Location', handler: handleShareLocation },
+              { label: 'Voice', handler: handleRecordVoice },
+            ] as const).map((item, idx) => (
+              <TouchableOpacity
+                key={idx}
+                style={styles.actionSheetOption}
+                onPress={() => {
+                  setShowActionSheet(false);
+                  item.handler();
+                }}
+              >
+                <Text style={[styles.actionSheetOptionText, { color: colors.textPrimary }]}>
+                  {item.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
             <TouchableOpacity
               style={styles.actionSheetOption}
               onPress={() => setShowActionSheet(false)}
@@ -1063,6 +1274,9 @@ const styles = StyleSheet.create({
   actionSheetOption: {
     paddingVertical: 14,
     alignItems: 'center',
+  },
+  actionSheetOptionText: {
+    fontSize: 16,
   },
   actionSheetCancel: {
     fontSize: 16,

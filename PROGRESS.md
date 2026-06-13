@@ -6,6 +6,47 @@
 
 ## 当前阶段：Phase 5 — Release（EAS Build + App Store 提交）⬅️ 进行中
 
+## Phase E — 交互体验 ✅
+
+> 目标：附件上传（拍照/相册/文件/位置）、媒体预览（图片查看器/视频播放器）、Haptics、通知管理（本地通知 + 权限请求）、Android ActionSheet、系统级权限配置
+> 详见 [`plans/phase_e_remaining_execution_plan.md`](plans/phase_e_remaining_execution_plan.md) | [`plans/sama_remaining_work_plan.md`](plans/sama_remaining_work_plan.md#phase-e--交互体验)
+
+### 架构变更
+
+- **上传服务**: 新增 [`UploadService`](src/services/uploadService.ts) 单例，封装 `expo-file-system` + 预签名 URL 上传流程，支持 `chat`/`avatar` 模块
+- **附件操作**: [`ConversationScreen`](src/screens/ConversationScreen.tsx) 中实现 5 种附件操作（拍照/相册/文件/位置/语音），通过 `sendAttachmentMessage` 统一发送
+- **媒体预览**: 新增 [`ImageViewerScreen`](src/screens/ImageViewerScreen.tsx)（`expo-image` 全屏浏览+pinch-to-zoom+swipe-to-dismiss）和 [`VideoPlayerScreen`](src/screens/VideoPlayerScreen.tsx)（`expo-av` Video 全屏播放）
+- **Haptics**: 引入 `expo-haptics`，在发送消息、长按菜单、Reactions 等触发 `Light/Medium/Selection` 反馈
+- **通知管理**: [`NotificationService`](src/services/notificationService.ts) 单例封装本地通知调度 + 权限请求 + 通知点击导航
+- **系统权限**: 通过 Expo 插件自动配置 iOS `Info.plist` 和 `AndroidManifest.xml` 权限
+
+### 新增文件
+
+| # | 文件 | 类型 | 说明 |
+|---|------|------|------|
+| 1 | `src/services/uploadService.ts` | Service | 上传服务：预签名 URL 请求 → `uploadAsync` 直传 S3 |
+| 2 | `src/screens/ImageViewerScreen.tsx` | Screen | 图片全屏查看：`expo-image` + pinch-to-zoom + swipe-to-dismiss |
+| 3 | `src/screens/VideoPlayerScreen.tsx` | Screen | 视频全屏播放：`expo-av` Video + 播放控制 + 全屏模式 |
+| 4 | `src/services/notificationService.ts` | Service | 本地通知管理：调度/权限/点击导航 |
+
+### 配置变更
+
+| # | 文件 | 变更 |
+|---|------|------|
+| 1 | `app.json` | 添加 `expo-image-picker` 插件（`photosPermission` + `cameraPermission`） |
+| 2 | `app.json` | 添加 `expo-location` 插件（`locationWhenInUsePermission`） |
+| 3 | `app.json` | 添加 `expo-notifications` 插件 |
+
+### 生成的原生权限
+
+| 权限 | iOS (Info.plist) | Android (AndroidManifest.xml) |
+|------|-----------------|------------------------------|
+| 相机 | `NSCameraUsageDescription` | `android.permission.CAMERA` |
+| 相册 | `NSPhotoLibraryUsageDescription` | — |
+| 麦克风 | `NSMicrophoneUsageDescription` | `android.permission.RECORD_AUDIO` |
+| 位置 | `NSLocationWhenInUseUsageDescription` | `ACCESS_FINE_LOCATION`, `ACCESS_COARSE_LOCATION` |
+
+
 ### 文件清单
 
 #### Phase 0 — 基础设施 ✅

@@ -23,7 +23,12 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.sama.app"
+      "package": "com.sama.app",
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -41,7 +46,27 @@
       "@sentry/react-native",
       "expo-splash-screen",
       "expo-image",
-      "expo-updates"
-    ]
+      "expo-updates",
+      "expo-notifications",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Sama needs access to your photo library to share images.",
+          "cameraPermission": "Sama needs camera access to take and share photos."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Sama needs your location to share it with friends."
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "23b93398-ee29-4acd-9752-343e57bd5830"
+      }
+    },
+    "owner": "mrbigporter"
   }
 }
