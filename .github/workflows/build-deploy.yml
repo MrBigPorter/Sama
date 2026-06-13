@@ -55,7 +55,7 @@ jobs:
         run: npm ci
 
       - name: EAS Build iOS
-        run: eas build --profile ${{ needs.resolve.outputs.profile }} --platform ios --non-interactive
+        run: npx eas build --profile ${{ needs.resolve.outputs.profile }} --platform ios --non-interactive
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
 
@@ -77,7 +77,7 @@ jobs:
         run: npm ci
 
       - name: EAS Build Android
-        run: eas build --profile ${{ needs.resolve.outputs.profile }} --platform android --non-interactive
+        run: npx eas build --profile ${{ needs.resolve.outputs.profile }} --platform android --non-interactive
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
 
@@ -100,7 +100,7 @@ jobs:
         run: npm ci
 
       - name: Push staging OTA update
-        run: 'eas update --branch staging --message "CI: $(git log -1 --pretty=%s)"'
+        run: 'npx eas update --branch staging --message "CI: $(git log -1 --pretty=%s)"'
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
 
@@ -123,7 +123,7 @@ jobs:
         run: npm ci
 
       - name: Push production OTA update
-        run: 'eas update --branch production --message "CI: $(git log -1 --pretty=%s)"'
+        run: 'npx eas update --branch production --message "CI: $(git log -1 --pretty=%s)"'
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
 
@@ -147,7 +147,7 @@ jobs:
         run: npm ci
 
       - name: Submit iOS to App Store Connect
-        run: eas submit --platform ios --profile production --non-interactive
+        run: npx eas submit --platform ios --profile production --non-interactive
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
 
@@ -171,6 +171,6 @@ jobs:
         run: npm ci
 
       - name: Submit Android to Google Play Console
-        run: eas submit --platform android --profile production --non-interactive
+        run: npx eas submit --platform android --profile production --non-interactive
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
