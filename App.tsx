@@ -1,20 +1,37 @@
+import React, { useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { Provider as ReduxProvider } from 'react-redux';
+import { store } from '@/store';
+import { ThemeProvider } from '@/lib/theme/ThemeContext';
+import { Navigation } from '@/Navigation';
+import { initSentry } from '@/lib/sentry';
 
-export default function App() {
+// Hermes polyfills — must be imported before any other code at module scope
+import '@/lib/globals';
+
+function AppContent() {
+  useEffect(() => {
+    initSentry();
+  }, []);
+
   return (
-    <View style={styles.container}>
-      <Text>Open up App.tsx to start working on your app!</Text>
+    <ThemeProvider>
       <StatusBar style="auto" />
-    </View>
+      <Navigation />
+    </ThemeProvider>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});
+export default function App() {
+  return (
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <ReduxProvider store={store}>
+          <AppContent />
+        </ReduxProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
+  );
+}

@@ -1,0 +1,46 @@
+{
+  "cli": {
+    "version": ">= 16.0.0",
+    "requireCommit": true
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "env": {
+        "APP_VARIANT": "development",
+        "API_URL": "http://localhost:4000",
+        "WS_URL": "http://localhost:4000",
+        "ENABLE_ANALYTICS": "false",
+        "LOG_LEVEL": "debug"
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "APP_VARIANT": "preview",
+        "API_URL": "https://api-staging.sama.app",
+        "WS_URL": "wss://api-staging.sama.app",
+        "ENABLE_ANALYTICS": "true",
+        "LOG_LEVEL": "info"
+      }
+    },
+    "production": {
+      "distribution": "store",
+      "env": {
+        "APP_VARIANT": "production",
+        "API_URL": "https://api.sama.app",
+        "WS_URL": "wss://api.sama.app",
+        "SENTRY_DSN": "https://6042c78ea2c7e97d792b37ae9c50d1ed@o4511086990524416.ingest.us.sentry.io/4511557286952960",
+        "ENABLE_ANALYTICS": "true",
+        "LOG_LEVEL": "warn"
+      }
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}
